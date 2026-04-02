@@ -81,7 +81,6 @@ const Navbar = () => {
 };
 
 const Hero = ({ images }: { images: any }) => {
-  console.log("Hero component received images:", Object.keys(images || {}));
   return (
     <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
       {/* Background Elements */}
@@ -424,13 +423,21 @@ const Footer = () => {
 };
 
 export default function App() {
-  const [generatedImages, setGeneratedImages] = useState<any>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [generatedImages, setGeneratedImages] = useState<any>(() => {
+    const cached = localStorage.getItem("hilal_images_cache");
+    return cached ? JSON.parse(cached) : {};
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadImages = async () => {
-      console.log("App mounted, starting loadImages process...");
+      // If we already have cached images, don't show loading or regenerate
+      if (Object.keys(generatedImages).length > 0) {
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       
@@ -439,23 +446,19 @@ export default function App() {
 
       try {
         const hasKey = await window.aistudio?.hasSelectedApiKey?.();
-        console.log("API Key check:", hasKey);
         
         if (hasKey === false) {
-          console.log("No API key selected, opening dialog...");
           await window.aistudio.openSelectKey();
-          // After opening the dialog, we assume the user selects a key and we proceed.
         }
         
-        console.log("Starting image generation with Gemini...");
         const results = await generateImages();
         
         if (Object.keys(results).length === 0) {
           throw new Error("Görseller oluşturulamadı. Lütfen API anahtarınızı kontrol edin.");
         }
         
-        console.log("Images generated successfully:", Object.keys(results));
         setGeneratedImages(results);
+        localStorage.setItem("hilal_images_cache", JSON.stringify(results));
       } catch (err: any) {
         console.error("Auto image generation failed:", err);
         setError(err.message || "Görseller oluşturulurken bir hata oluştu.");
