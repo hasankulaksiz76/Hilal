@@ -81,6 +81,7 @@ const Navbar = () => {
 };
 
 const Hero = ({ images }: { images: any }) => {
+  console.log("Hero component received images:", Object.keys(images || {}));
   return (
     <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
       {/* Background Elements */}
@@ -424,25 +425,84 @@ const Footer = () => {
 
 export default function App() {
   const [generatedImages, setGeneratedImages] = useState<any>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadImages = async () => {
+      console.log("App mounted, starting loadImages process...");
+      setIsLoading(true);
+      setError(null);
+      
+      // Small delay to ensure window.aistudio is fully initialized
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       try {
         const hasKey = await window.aistudio?.hasSelectedApiKey?.();
+        console.log("API Key check:", hasKey);
+        
         if (hasKey === false) {
+          console.log("No API key selected, opening dialog...");
           await window.aistudio.openSelectKey();
+          // After opening the dialog, we assume the user selects a key and we proceed.
         }
+        
+        console.log("Starting image generation with Gemini...");
         const results = await generateImages();
+        
+        if (Object.keys(results).length === 0) {
+          throw new Error("Görseller oluşturulamadı. Lütfen API anahtarınızı kontrol edin.");
+        }
+        
+        console.log("Images generated successfully:", Object.keys(results));
         setGeneratedImages(results);
-      } catch (error) {
-        console.error("Auto image generation failed:", error);
+      } catch (err: any) {
+        console.error("Auto image generation failed:", err);
+        setError(err.message || "Görseller oluşturulurken bir hata oluştu.");
+      } finally {
+        setIsLoading(false);
       }
     };
     loadImages();
   }, []);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative">
+      {isLoading && (
+        <div className="fixed inset-0 z-[100] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full mb-8"
+          />
+          <h2 className="text-2xl font-bold text-emerald-900 mb-4">Geleceğin Çiftliği Hazırlanıyor</h2>
+          <p className="text-gray-600 max-w-md">
+            Yapay zeka, Hilal'in Yeşili için yüksek kaliteli görselleri oluşturuyor. 
+            Bu işlem yaklaşık 30-60 saniye sürebilir. Lütfen bekleyin...
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed bottom-6 right-6 z-[100] bg-red-50 border border-red-200 p-4 rounded-2xl shadow-2xl max-w-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+              <X className="text-red-600 w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="font-bold text-red-900 mb-1">Hata Oluştu</h4>
+              <p className="text-xs text-red-700 mb-3">{error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="text-xs font-bold text-red-900 underline hover:no-underline"
+              >
+                Tekrar Dene
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Navbar />
       <main>
         <Hero images={generatedImages} />

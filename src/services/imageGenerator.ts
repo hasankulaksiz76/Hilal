@@ -1,7 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 
 export async function generateImages() {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY });
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
+    console.error("API key is missing or invalid.");
+    throw new Error("API anahtarı bulunamadı. Lütfen sağ üstteki ayarlardan API anahtarınızı seçin.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const prompts = [
     {
@@ -48,26 +55,53 @@ export async function generateImages() {
 
   const results = {};
 
-  for (const p of prompts) {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-image-preview',
-      contents: {
-        parts: [{ text: p.prompt }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: p.aspectRatio as any,
-          imageSize: "1K"
+  const withRetry = async (fn: () => Promise<any>, id: string, retries = 3, delay = 2000) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        const isRetryable = error?.error?.code === 503 || error?.error?.code === 429 || error?.message?.includes("high demand");
+        if (isRetryable && i < retries - 1) {
+          const backoff = delay * Math.pow(2, i);
+          console.warn(`Retrying image generation for ${id} in ${backoff}ms (Attempt ${i + 1}/${retries})...`);
+          await new Promise(resolve => setTimeout(resolve, backoff));
+          continue;
         }
-      },
-    });
-
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        results[p.id] = `data:image/png;base64,${part.inlineData.data}`;
+        throw error;
       }
     }
-  }
+  };
 
+  await Promise.all(prompts.map(async (p) => {
+    try {
+      const response = await withRetry(async () => {
+        return await ai.models.generateContent({
+          model: 'gemini-3.1-flash-image-preview',
+          contents: {
+            parts: [{ text: p.prompt }],
+          },
+          config: {
+            imageConfig: {
+              aspectRatio: p.aspectRatio as any,
+              imageSize: "1K"
+            }
+          },
+        });
+      }, p.id);
+
+      if (response && response.candidates && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            results[p.id] = `data:image/png;base64,${part.inlineData.data}`;
+            console.log(`Successfully generated image for: ${p.id}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to generate image for ${p.id} after retries:`, error);
+    }
+  }));
+
+  console.log("Total images generated:", Object.keys(results).length);
   return results;
 }
