@@ -19,18 +19,18 @@ import {
   ShieldCheck,
   Zap
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { generateImages } from "./services/imageGenerator";
+import { useState } from "react";
 
-// Extend Window interface for AI Studio
-declare global {
-  interface Window {
-    aistudio: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
-  }
-}
+const STATIC_IMAGES = {
+  hero: "https://images.unsplash.com/photo-1558449028-b53a39d100fc?auto=format&fit=crop&q=80&w=1600",
+  tech: "https://images.unsplash.com/photo-1591850443137-068a15ec7f5a?auto=format&fit=crop&q=80&w=1200",
+  harvest: "https://images.unsplash.com/photo-1592419044706-39796d40f98c?auto=format&fit=crop&q=80&w=1200",
+  gallery1: "https://images.unsplash.com/photo-1618161595730-3858a141b43c?auto=format&fit=crop&q=80&w=800",
+  gallery2: "https://images.unsplash.com/photo-1591850443137-068a15ec7f5a?auto=format&fit=crop&q=80&w=800",
+  gallery3: "https://images.unsplash.com/photo-1622206141843-34e81577779c?auto=format&fit=crop&q=80&w=800",
+  gallery4: "https://images.unsplash.com/photo-1594489428504-5c0c480a15fd?auto=format&fit=crop&q=80&w=800",
+  packaging: "https://images.unsplash.com/photo-1589923158776-cb4485d99fd6?auto=format&fit=crop&q=80&w=1000"
+};
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -423,95 +423,14 @@ const Footer = () => {
 };
 
 export default function App() {
-  const [generatedImages, setGeneratedImages] = useState<any>(() => {
-    const cached = localStorage.getItem("hilal_images_cache");
-    return cached ? JSON.parse(cached) : {};
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadImages = async () => {
-      // If we already have cached images, don't show loading or regenerate
-      if (Object.keys(generatedImages).length > 0) {
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      
-      // Small delay to ensure window.aistudio is fully initialized
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      try {
-        const hasKey = await window.aistudio?.hasSelectedApiKey?.();
-        
-        if (hasKey === false) {
-          await window.aistudio.openSelectKey();
-        }
-        
-        const results = await generateImages();
-        
-        if (Object.keys(results).length === 0) {
-          throw new Error("Görseller oluşturulamadı. Lütfen API anahtarınızı kontrol edin.");
-        }
-        
-        setGeneratedImages(results);
-        localStorage.setItem("hilal_images_cache", JSON.stringify(results));
-      } catch (err: any) {
-        console.error("Auto image generation failed:", err);
-        setError(err.message || "Görseller oluşturulurken bir hata oluştu.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadImages();
-  }, []);
-
   return (
     <div className="min-h-screen relative">
-      {isLoading && (
-        <div className="fixed inset-0 z-[100] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full mb-8"
-          />
-          <h2 className="text-2xl font-bold text-emerald-900 mb-4">Geleceğin Çiftliği Hazırlanıyor</h2>
-          <p className="text-gray-600 max-w-md">
-            Yapay zeka, Hilal'in Yeşili için yüksek kaliteli görselleri oluşturuyor. 
-            Bu işlem yaklaşık 30-60 saniye sürebilir. Lütfen bekleyin...
-          </p>
-        </div>
-      )}
-
-      {error && (
-        <div className="fixed bottom-6 right-6 z-[100] bg-red-50 border border-red-200 p-4 rounded-2xl shadow-2xl max-w-sm">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
-              <X className="text-red-600 w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="font-bold text-red-900 mb-1">Hata Oluştu</h4>
-              <p className="text-xs text-red-700 mb-3">{error}</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="text-xs font-bold text-red-900 underline hover:no-underline"
-              >
-                Tekrar Dene
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <Navbar />
       <main>
-        <Hero images={generatedImages} />
-        <FeatureSection images={generatedImages} />
-        <Subscription images={generatedImages} />
-        <Gallery images={generatedImages} />
+        <Hero images={STATIC_IMAGES} />
+        <FeatureSection images={STATIC_IMAGES} />
+        <Subscription images={STATIC_IMAGES} />
+        <Gallery images={STATIC_IMAGES} />
       </main>
       <Footer />
     </div>
